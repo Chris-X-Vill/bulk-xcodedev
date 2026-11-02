@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LineChart,
   Moon,
+  RotateCcw,
   Plus,
   Settings,
   Sun,
@@ -79,6 +80,7 @@ export default function App() {
   const [chartMode, setChartMode] = useState('bar')
   const [modal, setModal] = useState({ open: false, entry: null })
   const [toast, setToast] = useState(null)
+  const [confirmReset, setConfirmReset] = useState(false)
 
   useEffect(() => save(STORAGE_KEY, logs), [logs])
 
@@ -127,10 +129,26 @@ export default function App() {
     setToast({ message: `Deleted “${entry.title}”`, undo: entry })
   }
 
-  const undoDelete = () => {
+  const handleReset = () => {
+    const previous = logs
+    setLogs([])
+    setWeekOffset(0)
+    setConfirmReset(false)
+    setToast({ message: `Deleted all ${previous.length} logs`, restore: previous })
+  }
+
+  const undoToast = () => {
     if (toast?.undo) setLogs((prev) => [...prev, toast.undo])
+    if (toast?.restore) setLogs(toast.restore)
     setToast(null)
   }
+
+  useEffect(() => {
+    if (!confirmReset) return
+    const onKey = (e) => e.key === 'Escape' && setConfirmReset(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [confirmReset])
 
   const greeting = today.getHours() < 12 ? 'Good morning' : today.getHours() < 18 ? 'Good afternoon' : 'Good evening'
 
@@ -178,7 +196,7 @@ export default function App() {
               <p className="text-sm text-ink-3">{greeting}</p>
               <h1 className="text-2xl font-semibold tracking-tight">Daily Activity Tracker</h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center rounded-lg border border-line bg-surface">
                 <button
                   onClick={() => setWeekOffset((w) => w - 1)}
@@ -205,6 +223,15 @@ export default function App() {
                 aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
               >
                 {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+              <button
+                onClick={() => setConfirmReset(true)}
+                disabled={!logs.length}
+                className="rounded-lg border border-line bg-surface p-2 text-ink-2 transition hover:text-bad disabled:opacity-30 disabled:hover:text-ink-2"
+                aria-label="Reset data"
+                title="Reset data"
+              >
+                <RotateCcw size={16} />
               </button>
               <button
                 onClick={openAdd}
@@ -356,13 +383,51 @@ export default function App() {
         </div>
       </main>
 
+      {confirmReset && (
+        <div className="fixed inset-0 z-50 grid place-items-center p-4">
+          <div className="animate-fade-in absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setConfirmReset(false)} />
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="reset-title"
+            aria-describedby="reset-desc"
+            className="animate-pop-in relative w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-2xl shadow-black/20"
+          >
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-bad/10 text-bad">
+              <RotateCcw size={18} />
+            </span>
+            <h2 id="reset-title" className="mt-4 text-lg font-semibold text-ink">
+              Reset all data?
+            </h2>
+            <p id="reset-desc" className="mt-1 text-sm text-ink-2">
+              This deletes all {logs.length} logs and sets every total, average and streak back to zero.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                autoFocus
+                onClick={() => setConfirmReset(false)}
+                className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink transition hover:bg-surface-2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReset}
+                className="rounded-lg bg-bad px-4 py-2 text-sm font-semibold text-btn-ink transition hover:opacity-90"
+              >
+                Delete all logs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <LogModal open={modal.open} entry={modal.entry} onClose={closeModal} onSave={handleSave} />
 
       {toast && (
         <div className="animate-pop-in fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-xl bg-btn px-4 py-3 text-sm text-btn-ink shadow-xl">
           {toast.message}
-          {toast.undo && (
-            <button onClick={undoDelete} className="font-semibold underline underline-offset-2">
+          {(toast.undo || toast.restore) && (
+            <button onClick={undoToast} className="font-semibold underline underline-offset-2">
               Undo
             </button>
           )}

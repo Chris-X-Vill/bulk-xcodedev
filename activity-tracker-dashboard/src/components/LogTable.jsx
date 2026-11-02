@@ -61,7 +61,7 @@ export default function LogTable({ logs, onEdit, onDelete }) {
         </div>
       </header>
 
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="text-xs font-medium tracking-wide text-ink-3 uppercase">
@@ -113,16 +113,14 @@ export default function LogTable({ logs, onEdit, onDelete }) {
                 </tr>
               )
             })}
-            {!rows.length && (
-              <tr>
-                <td colSpan={6} className="px-5 py-12 text-center text-sm text-ink-3">
-                  No entries match your filters.
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
+      {!rows.length && (
+        <p className="border-t border-line px-5 py-12 text-center text-sm text-ink-3">
+          {logs.length ? 'No entries match your filters.' : 'No logs yet. Tap Add Log to record your first activity.'}
+        </p>
+      )}
 
       <footer className="flex items-center justify-between border-t border-line px-5 py-3 text-sm text-ink-3">
         <span className="tabular">
