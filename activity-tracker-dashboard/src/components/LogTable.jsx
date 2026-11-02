@@ -41,7 +41,7 @@ export default function LogTable({ logs, onEdit, onDelete }) {
               className="w-56 rounded-lg border border-line bg-surface py-2 pr-3 pl-9 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-ink-3"
             />
           </div>
-          <div className="flex rounded-lg border border-line p-0.5">
+          <div className="flex flex-wrap rounded-lg border border-line p-0.5">
             {[{ id: 'all', label: 'All' }, ...CATEGORIES].map((c) => (
               <button
                 key={c.id}
@@ -49,7 +49,7 @@ export default function LogTable({ logs, onEdit, onDelete }) {
                   setCategory(c.id)
                   setPage(0)
                 }}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition ${
                   category === c.id ? 'bg-surface-2 text-ink' : 'text-ink-3 hover:text-ink'
                 }`}
               >
@@ -83,7 +83,7 @@ export default function LogTable({ logs, onEdit, onDelete }) {
                   <td className="px-5 py-3 whitespace-nowrap text-ink-2 tabular">{fmtLong(fromKey(log.date))}</td>
                   <td className="px-5 py-3 font-medium text-ink">{log.title}</td>
                   <td className="px-5 py-3">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-0.5 text-xs font-medium text-ink-2">
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2 py-0.5 text-xs font-medium text-ink-2">
                       <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
                       {c.label}
                     </span>

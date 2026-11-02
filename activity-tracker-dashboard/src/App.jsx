@@ -208,7 +208,7 @@ export default function App() {
               </button>
               <button
                 onClick={openAdd}
-                className="flex items-center gap-1.5 rounded-lg bg-btn px-3.5 py-2 text-sm font-semibold text-btn-ink transition hover:opacity-90"
+                className="flex items-center gap-1.5 rounded-lg bg-btn px-3.5 py-2 text-sm font-semibold text-btn-ink transition hover:opacity-90 whitespace-nowrap"
               >
                 <Plus size={16} strokeWidth={2.5} />
                 Add Log
