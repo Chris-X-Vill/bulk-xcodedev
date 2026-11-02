@@ -359,7 +359,7 @@ export default function App() {
       <LogModal open={modal.open} entry={modal.entry} onClose={closeModal} onSave={handleSave} />
 
       {toast && (
-        <div className="animate-pop-in fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-xl bg-btn px-4 py-3 text-sm text-btn-ink shadow-xl">
+        <div className="animate-pop-in fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-xl bg-btn px-4 py-3 text-sm text-btn-ink shadow-xl">
           {toast.message}
           {toast.undo && (
             <button onClick={undoDelete} className="font-semibold underline underline-offset-2">
