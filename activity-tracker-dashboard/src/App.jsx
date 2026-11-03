@@ -1,88 +1,98 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  Activity,
-  BarChart3,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Flame,
-  Gauge,
-  LayoutDashboard,
-  LineChart,
-  Moon,
-  RotateCcw,
-  Plus,
-  Settings,
-  Sun,
-  Target,
-} from 'lucide-react'
-import ActivityChart from './components/ActivityChart'
-import KpiCard, { Delta } from './components/KpiCard'
+import { ChevronLeft, ChevronRight, Moon, Plus, Sun, Target, Upload } from 'lucide-react'
+import ConfirmDialog from './components/ConfirmDialog'
+import GoalModal from './components/GoalModal'
 import LogModal from './components/LogModal'
-import LogTable from './components/LogTable'
+import { BottomNav, ROUTES, Sidebar } from './components/Nav'
+import { buildBackup, mergeById, parseBackup, saveBackupFile } from './lib/backup'
+import { goalProgress } from './lib/goals'
 import { makeSeed } from './lib/seed'
-import {
-  CATEGORIES,
-  addDays,
-  buildWeek,
-  computeStreak,
-  fmtDay,
-  fmtDuration,
-  longestStreak,
-  toKey,
-  uid,
-} from './lib/utils'
+import { KEYS, usePersistentState } from './lib/storage'
+import { addDays, fmtDay, fmtStamp, toKey, uid } from './lib/utils'
+import Activities from './views/Activities'
+import CalendarView from './views/CalendarView'
+import Dashboard from './views/Dashboard'
+import Goals from './views/Goals'
+import Settings from './views/Settings'
 
-const STORAGE_KEY = 'activity-tracker:logs'
-const THEME_KEY = 'activity-tracker:theme'
-
-function load(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback()
-  } catch {
-    return fallback()
-  }
+const ROUTE_IDS = ROUTES.map((r) => r.id)
+const readRoute = () => {
+  const id = window.location.hash.slice(1)
+  return ROUTE_IDS.includes(id) ? id : 'dashboard'
 }
 
-function save(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    /* storage unavailable — keep working in memory */
-  }
-}
-
-function useTheme() {
-  const [theme, setTheme] = useState(() =>
-    load(THEME_KEY, () => (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')),
-  )
+function useRoute() {
+  const [route, setRoute] = useState(readRoute)
   useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    save(THEME_KEY, theme)
-  }, [theme])
-  return [theme, () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))]
+    const onHash = () => {
+      setRoute(readRoute())
+      window.scrollTo(0, 0)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+  return route
 }
 
-const NAV = [
-  { icon: LayoutDashboard, label: 'Dashboard', active: true },
-  { icon: Activity, label: 'Activities' },
-  { icon: Target, label: 'Goals' },
-  { icon: CalendarDays, label: 'Calendar' },
-  { icon: Settings, label: 'Settings' },
-]
+/** Today's date, refreshed when the app comes back to the foreground on a new day (installed apps stay in memory). */
+function useToday() {
+  const [today, setToday] = useState(() => new Date())
+  useEffect(() => {
+    const check = () => setToday((prev) => (toKey(prev) === toKey(new Date()) ? prev : new Date()))
+    const id = setInterval(check, 60_000)
+    document.addEventListener('visibilitychange', check)
+    window.addEventListener('focus', check)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', check)
+      window.removeEventListener('focus', check)
+    }
+  }, [])
+  return today
+}
+
+const prefersDark = () => Boolean(window.matchMedia?.('(prefers-color-scheme: dark)').matches)
+
+/** Theme preference: 'light' | 'dark' | 'system'. Returns the preference and whether dark is showing. */
+function useTheme() {
+  const [theme, setTheme] = usePersistentState(KEYS.theme, () => 'system')
+  const [systemDark, setSystemDark] = useState(prefersDark)
+  useEffect(() => {
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)')
+    if (!media) return
+    const onChange = () => setSystemDark(media.matches)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [])
+  const dark = theme === 'system' ? systemDark : theme === 'dark'
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+  }, [dark])
+  return [theme, setTheme, dark]
+}
+
+const PAGE_TITLES = {
+  activities: ['Activities', 'Everything you’ve logged. Add, edit or delete any entry.'],
+  goals: ['Goals', 'Daily and weekly targets for the time you log.'],
+  calendar: ['Calendar', 'Your activities by day. Tap a day to see or add its logs.'],
+  settings: ['Settings', 'Backup, app icon, appearance and data.'],
+}
+
+const primaryBtn =
+  'flex items-center gap-1.5 rounded-lg bg-btn px-3.5 py-2 text-sm font-semibold whitespace-nowrap text-btn-ink transition hover:opacity-90'
 
 export default function App() {
-  const [logs, setLogs] = useState(() => load(STORAGE_KEY, () => makeSeed()))
-  const [theme, toggleTheme] = useTheme()
+  const route = useRoute()
+  const today = useToday()
+  const [theme, setTheme, dark] = useTheme()
+  const [logs, setLogs] = usePersistentState(KEYS.logs, () => makeSeed())
+  const [goals, setGoals] = usePersistentState(KEYS.goals, () => [])
+  const [lastBackup, setLastBackup] = usePersistentState(KEYS.lastBackup, () => null)
   const [weekOffset, setWeekOffset] = useState(0)
-  const [chartMode, setChartMode] = useState('bar')
-  const [modal, setModal] = useState({ open: false, entry: null })
+  const [logModal, setLogModal] = useState({ open: false, entry: null })
+  const [goalModal, setGoalModal] = useState({ open: false, goal: null })
+  const [dialog, setDialog] = useState(null)
   const [toast, setToast] = useState(null)
-  const [confirmReset, setConfirmReset] = useState(false)
-
-  useEffect(() => save(STORAGE_KEY, logs), [logs])
 
   useEffect(() => {
     if (!toast) return
@@ -90,344 +100,244 @@ export default function App() {
     return () => clearTimeout(t)
   }, [toast])
 
-  const today = useMemo(() => new Date(), [])
   // Rolling 7-day windows ending today, so comparisons are always like-for-like (never a partial week).
-  const weekEnd = addDays(today, weekOffset * 7)
-  const weekStart = addDays(weekEnd, -6)
-  const days = useMemo(() => buildWeek(logs, weekStart), [logs, weekStart.getTime()]) // eslint-disable-line react-hooks/exhaustive-deps
-  const prevDays = useMemo(() => buildWeek(logs, addDays(weekStart, -7)), [logs, weekStart.getTime()]) // eslint-disable-line react-hooks/exhaustive-deps
+  const todayKey = toKey(today)
+  const weekEnd = useMemo(() => addDays(today, weekOffset * 7), [todayKey, weekOffset]) // eslint-disable-line react-hooks/exhaustive-deps
+  const weekStart = useMemo(() => addDays(weekEnd, -6), [weekEnd])
 
-  const elapsed = 7
-  const total = days.reduce((s, d) => s + d.total, 0)
-  const prevTotal = prevDays.reduce((s, d) => s + d.total, 0)
-  const avg = total / elapsed
-  const prevAvg = prevTotal / elapsed
-  const streak = computeStreak(logs, today)
-  const best = longestStreak(logs)
-  const activeKeys = new Set(logs.map((l) => l.date))
-  const last14 = Array.from({ length: 14 }, (_, i) => addDays(today, i - 13))
+  const closeLog = useCallback(() => setLogModal({ open: false, entry: null }), [])
+  const closeGoal = useCallback(() => setGoalModal({ open: false, goal: null }), [])
+  const closeDialog = useCallback(() => setDialog(null), [])
+  // A date string pre-fills the form (used by the calendar); anything else opens a blank form.
+  const openAddLog = (date) => setLogModal({ open: true, entry: typeof date === 'string' ? { date } : null })
+  const openEditLog = (entry) => setLogModal({ open: true, entry })
+  const openAddGoal = () => setGoalModal({ open: true, goal: null })
+  const openEditGoal = (goal) => setGoalModal({ open: true, goal })
 
-  const byCategory = CATEGORIES.map((c) => ({
-    ...c,
-    minutes: days.reduce((s, d) => s + d.byCat[c.id], 0),
-  })).sort((a, b) => b.minutes - a.minutes)
-
-  const openAdd = () => setModal({ open: true, entry: null })
-  const openEdit = (entry) => setModal({ open: true, entry })
-  const closeModal = useCallback(() => setModal({ open: false, entry: null }), [])
-
-  const handleSave = (entry) => {
-    setLogs((prev) =>
-      entry.id ? prev.map((l) => (l.id === entry.id ? entry : l)) : [...prev, { ...entry, id: uid() }],
-    )
+  // Logs
+  const saveLog = (entry) => {
+    setLogs((prev) => (entry.id ? prev.map((l) => (l.id === entry.id ? entry : l)) : [...prev, { ...entry, id: uid() }]))
     setToast({ message: entry.id ? 'Log updated' : 'Log added' })
-    closeModal()
+    closeLog()
   }
-
-  const handleDelete = (entry) => {
+  const deleteLog = (entry) => {
     setLogs((prev) => prev.filter((l) => l.id !== entry.id))
-    setToast({ message: `Deleted “${entry.title}”`, undo: entry })
+    setToast({ message: `Deleted “${entry.title}”`, onUndo: () => setLogs((prev) => [...prev, entry]) })
   }
 
-  const handleReset = () => {
-    const previous = logs
-    setLogs([])
-    setWeekOffset(0)
-    setConfirmReset(false)
-    setToast({ message: `Deleted all ${previous.length} logs`, restore: previous })
+  // Goals
+  const saveGoal = (goal) => {
+    setGoals((prev) => (goal.id ? prev.map((g) => (g.id === goal.id ? goal : g)) : [...prev, { ...goal, id: uid() }]))
+    setToast({ message: goal.id ? 'Goal updated' : 'Goal created' })
+    closeGoal()
+  }
+  const createGoal = (goal) => {
+    setGoals((prev) => [...prev, { ...goal, id: uid() }])
+    setToast({ message: `Goal created: ${goal.title}` })
+  }
+  const deleteGoal = (goal) => {
+    setGoals((prev) => prev.filter((g) => g.id !== goal.id))
+    setToast({ message: `Deleted goal “${goal.title}”`, onUndo: () => setGoals((prev) => [...prev, goal]) })
   }
 
-  const undoToast = () => {
-    if (toast?.undo) setLogs((prev) => [...prev, toast.undo])
-    if (toast?.restore) setLogs(toast.restore)
-    setToast(null)
+  // Data
+  const askReset = () =>
+    setDialog({
+      title: 'Reset all activity data?',
+      body: `This deletes all ${logs.length} logs and sets every total, average and streak back to zero. Your goals and settings are kept.`,
+      actions: [
+        {
+          label: 'Delete all logs',
+          onClick: () => {
+            const previous = logs
+            setLogs([])
+            setWeekOffset(0)
+            setDialog(null)
+            setToast({ message: `Deleted all ${previous.length} logs`, onUndo: () => setLogs(previous) })
+          },
+        },
+      ],
+    })
+
+  const exportBackup = async () => {
+    const result = await saveBackupFile(buildBackup({ logs, goals, theme }))
+    if (result === 'cancelled') return
+    setLastBackup(new Date().toISOString())
+    setToast({ message: result === 'shared' ? 'Backup ready to save' : 'Backup downloaded' })
   }
 
-  useEffect(() => {
-    if (!confirmReset) return
-    const onKey = (e) => e.key === 'Escape' && setConfirmReset(false)
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [confirmReset])
+  const importBackup = async (file) => {
+    let parsed
+    try {
+      parsed = parseBackup(await file.text())
+    } catch (err) {
+      setDialog({ title: 'Can’t import this file', body: err.message, actions: [] })
+      return
+    }
+    const apply = (mode) => {
+      const prevLogs = logs
+      const prevGoals = goals
+      if (mode === 'replace') {
+        setLogs(parsed.logs)
+        setGoals(parsed.goals)
+        if (parsed.theme) setTheme(parsed.theme)
+      } else {
+        setLogs((cur) => mergeById(cur, parsed.logs))
+        setGoals((cur) => mergeById(cur, parsed.goals))
+      }
+      setDialog(null)
+      setToast({
+        message: mode === 'replace' ? 'Backup restored' : 'Backup merged',
+        onUndo: () => {
+          setLogs(prevLogs)
+          setGoals(prevGoals)
+        },
+      })
+    }
+    setDialog({
+      icon: Upload,
+      tone: 'neutral',
+      title: 'Import this backup?',
+      body: (
+        <div className="space-y-2">
+          <p>
+            {parsed.exportedAt ? `Exported ${fmtStamp(parsed.exportedAt)}. ` : ''}It has {parsed.logs.length} logs and {parsed.goals.length} goals.
+            {parsed.skipped ? ` ${parsed.skipped} invalid entries will be skipped.` : ''}
+          </p>
+          <p>
+            <strong className="font-semibold text-ink">Replace</strong> swaps your current {logs.length} logs and {goals.length} goals for the backup.{' '}
+            <strong className="font-semibold text-ink">Merge</strong> adds only entries you don’t already have.
+          </p>
+        </div>
+      ),
+      actions: [
+        { label: 'Merge', tone: 'secondary', onClick: () => apply('merge') },
+        { label: 'Replace', tone: 'primary', onClick: () => apply('replace') },
+      ],
+    })
+  }
 
+  const goalsMet = goals.filter((g) => goalProgress(g, logs, today).status === 'met').length
   const greeting = today.getHours() < 12 ? 'Good morning' : today.getHours() < 18 ? 'Good afternoon' : 'Good evening'
+  const [title, subtitle] = route === 'dashboard' ? ['Daily Activity Tracker', greeting] : PAGE_TITLES[route]
 
   return (
     <div className="flex min-h-screen bg-canvas text-ink">
-      {/* Sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface px-4 py-6 lg:flex">
-        <div className="flex items-center gap-2.5 px-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-btn text-btn-ink">
-            <Activity size={17} strokeWidth={2.5} />
-          </span>
-          <span className="text-[15px] font-semibold tracking-tight">Dayflow</span>
-        </div>
-        <nav className="mt-8 space-y-1">
-          {NAV.map(({ icon: Icon, label, active }) => (
-            <a
-              key={label}
-              href="#"
-              onClick={(e) => e.preventDefault()}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                active ? 'bg-surface-2 text-ink' : 'text-ink-3 hover:bg-surface-2 hover:text-ink'
-              }`}
-            >
-              <Icon size={17} />
-              {label}
-            </a>
-          ))}
-        </nav>
-        <div className="mt-auto rounded-xl border border-line bg-surface-2 p-4">
-          <p className="text-sm font-semibold">Weekly goal</p>
-          <p className="mt-0.5 text-xs text-ink-3">
-            {fmtDuration(total)} of 20h
-          </p>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
-            <div className="h-full rounded-full bg-s1" style={{ width: `${Math.min(100, (total / 1200) * 100)}%` }} />
-          </div>
-        </div>
-      </aside>
+      <Sidebar
+        route={route}
+        footer={
+          <a href="#goals" className="block rounded-xl border border-line bg-surface-2 p-4 transition hover:border-line-strong">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <Target size={15} /> Goals
+            </p>
+            <p className="mt-0.5 text-xs text-ink-3">{goals.length ? `${goalsMet} of ${goals.length} met` : 'Set your first goal'}</p>
+            {goals.length > 0 && (
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
+                <div className="h-full rounded-full bg-good" style={{ width: `${(goalsMet / goals.length) * 100}%` }} />
+              </div>
+            )}
+          </a>
+        }
+      />
 
-      {/* Main */}
-      <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-10">
+      <main className="min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-8 lg:px-10 lg:pb-8">
         <div className="mx-auto max-w-[1280px] space-y-6">
           <header className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-sm text-ink-3">{greeting}</p>
-              <h1 className="text-2xl font-semibold tracking-tight">Daily Activity Tracker</h1>
+            <div className="min-w-0">
+              {route === 'dashboard' && <p className="text-sm text-ink-3">{subtitle}</p>}
+              <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+              {route !== 'dashboard' && <p className="mt-0.5 text-sm text-ink-3">{subtitle}</p>}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center rounded-lg border border-line bg-surface">
-                <button
-                  onClick={() => setWeekOffset((w) => w - 1)}
-                  className="p-2 text-ink-2 transition hover:text-ink"
-                  aria-label="Previous 7 days"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="min-w-36 text-center text-sm font-medium tabular">
-                  {weekOffset === 0 ? 'Last 7 days' : `${fmtDay(weekStart)} – ${fmtDay(weekEnd)}`}
-                </span>
-                <button
-                  onClick={() => setWeekOffset((w) => Math.min(0, w + 1))}
-                  disabled={weekOffset === 0}
-                  className="p-2 text-ink-2 transition hover:text-ink disabled:opacity-30"
-                  aria-label="Next 7 days"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
+              {route === 'dashboard' && (
+                <div className="flex items-center rounded-lg border border-line bg-surface">
+                  <button onClick={() => setWeekOffset((w) => w - 1)} className="p-2 text-ink-2 transition hover:text-ink" aria-label="Previous 7 days">
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="min-w-36 text-center text-sm font-medium tabular">
+                    {weekOffset === 0 ? 'Last 7 days' : `${fmtDay(weekStart)} – ${fmtDay(weekEnd)}`}
+                  </span>
+                  <button
+                    onClick={() => setWeekOffset((w) => Math.min(0, w + 1))}
+                    disabled={weekOffset === 0}
+                    className="p-2 text-ink-2 transition hover:text-ink disabled:opacity-30"
+                    aria-label="Next 7 days"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
               <button
-                onClick={toggleTheme}
+                onClick={() => setTheme(dark ? 'light' : 'dark')}
                 className="rounded-lg border border-line bg-surface p-2 text-ink-2 transition hover:text-ink"
-                aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                aria-label={`Switch to ${dark ? 'light' : 'dark'} mode`}
               >
-                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                {dark ? <Sun size={16} /> : <Moon size={16} />}
               </button>
-              <button
-                onClick={() => setConfirmReset(true)}
-                disabled={!logs.length}
-                className="rounded-lg border border-line bg-surface p-2 text-ink-2 transition hover:text-bad disabled:opacity-30 disabled:hover:text-ink-2"
-                aria-label="Reset data"
-                title="Reset data"
-              >
-                <RotateCcw size={16} />
-              </button>
-              <button
-                onClick={openAdd}
-                className="flex items-center gap-1.5 rounded-lg bg-btn px-3.5 py-2 text-sm font-semibold text-btn-ink transition hover:opacity-90 whitespace-nowrap"
-              >
-                <Plus size={16} strokeWidth={2.5} />
-                Add Log
-              </button>
+              {route === 'goals' ? (
+                <button onClick={openAddGoal} className={primaryBtn}>
+                  <Plus size={16} strokeWidth={2.5} /> New goal
+                </button>
+              ) : (
+                <button onClick={() => openAddLog()} className={primaryBtn}>
+                  <Plus size={16} strokeWidth={2.5} /> Add Log
+                </button>
+              )}
             </div>
           </header>
 
-          {/* KPIs */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <KpiCard
-              icon={Clock}
-              label="Total Time"
-              value={fmtDuration(total)}
-              footer={<Delta value={prevTotal ? (total - prevTotal) / prevTotal : null} />}
+          {route === 'dashboard' && (
+            <Dashboard
+              logs={logs}
+              goals={goals}
+              today={today}
+              weekStart={weekStart}
+              weekEnd={weekEnd}
+              onEditLog={openEditLog}
+              onDeleteLog={deleteLog}
+              onAddGoal={openAddGoal}
             />
-            <KpiCard
-              icon={Gauge}
-              label="Daily Average"
-              value={fmtDuration(avg)}
-              unit="/ day"
-              footer={<Delta value={prevAvg ? (avg - prevAvg) / prevAvg : null} />}
+          )}
+          {route === 'activities' && <Activities logs={logs} onAdd={() => openAddLog()} onEdit={openEditLog} onDelete={deleteLog} />}
+          {route === 'goals' && (
+            <Goals goals={goals} logs={logs} today={today} onAdd={openAddGoal} onCreate={createGoal} onEdit={openEditGoal} onDelete={deleteGoal} />
+          )}
+          {route === 'calendar' && <CalendarView logs={logs} today={today} onAdd={openAddLog} onEdit={openEditLog} onDelete={deleteLog} />}
+          {route === 'settings' && (
+            <Settings
+              theme={theme}
+              onThemeChange={setTheme}
+              logs={logs}
+              goals={goals}
+              lastBackup={lastBackup}
+              onExport={exportBackup}
+              onImportFile={importBackup}
+              onReset={askReset}
             />
-            <KpiCard
-              icon={Flame}
-              label="Streak"
-              value={streak}
-              unit={streak === 1 ? 'day' : 'days'}
-              footer={<span className="text-xs text-ink-3">Longest streak: {best} days</span>}
-            >
-              <div className="mt-4 flex gap-1" aria-label="Active days over the last two weeks">
-                {last14.map((d) => {
-                  const on = activeKeys.has(toKey(d))
-                  return (
-                    <span
-                      key={toKey(d)}
-                      title={`${fmtDay(d)}${on ? ' · active' : ' · no activity'}`}
-                      className={`h-2 flex-1 rounded-full ${on ? 'bg-s2' : 'bg-line'}`}
-                    />
-                  )
-                })}
-              </div>
-            </KpiCard>
-          </div>
-
-          {/* Chart + breakdown */}
-          <div className="grid gap-4 xl:grid-cols-3">
-            <section className="rounded-2xl border border-line bg-surface p-5 xl:col-span-2">
-              <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-semibold">Weekly activity</h2>
-                  <p className="text-sm text-ink-3">
-                    {fmtDay(weekStart)} – {fmtDay(weekEnd)} · time logged per day
-                  </p>
-                </div>
-                <div className="flex rounded-lg border border-line p-0.5" role="tablist" aria-label="Chart type">
-                  {[
-                    { id: 'bar', icon: BarChart3, label: 'By category' },
-                    { id: 'line', icon: LineChart, label: 'Trend' },
-                  ].map(({ id, icon: Icon, label }) => (
-                    <button
-                      key={id}
-                      role="tab"
-                      aria-selected={chartMode === id}
-                      onClick={() => setChartMode(id)}
-                      className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
-                        chartMode === id ? 'bg-surface-2 text-ink' : 'text-ink-3 hover:text-ink'
-                      }`}
-                    >
-                      <Icon size={14} />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </header>
-
-              {/* Legend */}
-              <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
-                {chartMode === 'bar' ? (
-                  CATEGORIES.map((c) => (
-                    <span key={c.id} className="flex items-center gap-1.5">
-                      <span className={`h-2.5 w-2.5 rounded-sm ${c.dot}`} />
-                      {c.label}
-                    </span>
-                  ))
-                ) : (
-                  <>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-0.5 w-4 rounded bg-s1" />
-                      Selected period
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-4 border-t-2 border-dashed border-ink-3" />
-                      Previous 7 days
-                    </span>
-                  </>
-                )}
-              </div>
-              <ActivityChart days={days} prevDays={prevDays} mode={chartMode} />
-            </section>
-
-            <section className="flex flex-col rounded-2xl border border-line bg-surface p-5">
-              <h2 className="text-base font-semibold">Time by category</h2>
-              <p className="text-sm text-ink-3">Share of {fmtDuration(total)} in this period</p>
-              <ul className="mt-6 space-y-5">
-                {byCategory.map((c) => {
-                  const share = total ? c.minutes / total : 0
-                  return (
-                    <li key={c.id}>
-                      <div className="mb-1.5 flex items-center justify-between text-sm">
-                        <span className="flex items-center gap-2 font-medium">
-                          <span className={`h-2.5 w-2.5 rounded-sm ${c.dot}`} />
-                          {c.label}
-                        </span>
-                        <span className="text-ink-2 tabular">
-                          {fmtDuration(c.minutes)}
-                          <span className="ml-2 inline-block w-9 text-right text-ink-3">{Math.round(share * 100)}%</span>
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-surface-2">
-                        <div className={`h-full rounded-full ${c.dot}`} style={{ width: `${share * 100}%` }} />
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-              <div className="mt-auto grid grid-cols-2 gap-3 pt-6">
-                <div className="rounded-xl bg-surface-2 p-3">
-                  <p className="text-xs text-ink-3">Entries</p>
-                  <p className="mt-1 text-lg font-semibold tabular">
-                    {logs.filter((l) => l.date >= toKey(weekStart) && l.date <= toKey(weekEnd)).length}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-surface-2 p-3">
-                  <p className="text-xs text-ink-3">Active days</p>
-                  <p className="mt-1 text-lg font-semibold tabular">
-                    {days.filter((d) => d.total > 0).length}
-                    <span className="text-sm font-normal text-ink-3"> / {elapsed}</span>
-                  </p>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <LogTable logs={logs} onEdit={openEdit} onDelete={handleDelete} />
+          )}
         </div>
       </main>
 
-      {confirmReset && (
-        <div className="fixed inset-0 z-50 grid place-items-center p-4">
-          <div className="animate-fade-in absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setConfirmReset(false)} />
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="reset-title"
-            aria-describedby="reset-desc"
-            className="animate-pop-in relative w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-2xl shadow-black/20"
-          >
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-bad/10 text-bad">
-              <RotateCcw size={18} />
-            </span>
-            <h2 id="reset-title" className="mt-4 text-lg font-semibold text-ink">
-              Reset all data?
-            </h2>
-            <p id="reset-desc" className="mt-1 text-sm text-ink-2">
-              This deletes all {logs.length} logs and sets every total, average and streak back to zero.
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                autoFocus
-                onClick={() => setConfirmReset(false)}
-                className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink transition hover:bg-surface-2"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReset}
-                className="rounded-lg bg-bad px-4 py-2 text-sm font-semibold text-btn-ink transition hover:opacity-90"
-              >
-                Delete all logs
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <BottomNav route={route} />
 
-      <LogModal open={modal.open} entry={modal.entry} onClose={closeModal} onSave={handleSave} />
+      <LogModal open={logModal.open} entry={logModal.entry} onClose={closeLog} onSave={saveLog} />
+      <GoalModal open={goalModal.open} goal={goalModal.goal} onClose={closeGoal} onSave={saveGoal} />
+      <ConfirmDialog dialog={dialog} onClose={closeDialog} />
 
       {toast && (
-        <div className="animate-pop-in fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-xl bg-btn px-4 py-3 text-sm text-btn-ink shadow-xl">
-          {toast.message}
-          {(toast.undo || toast.restore) && (
-            <button onClick={undoToast} className="font-semibold underline underline-offset-2">
+        <div
+          role="status"
+          className="animate-pop-in fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-4 rounded-xl bg-btn px-4 py-3 text-sm text-btn-ink shadow-xl lg:bottom-6"
+        >
+          <span className="truncate">{toast.message}</span>
+          {toast.onUndo && (
+            <button
+              onClick={() => {
+                toast.onUndo()
+                setToast(null)
+              }}
+              className="shrink-0 font-semibold underline underline-offset-2"
+            >
               Undo
             </button>
           )}

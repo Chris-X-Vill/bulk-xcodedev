@@ -16,6 +16,7 @@
   --btn: #0b0b0b;
   --btn-ink: #ffffff;
   --good: #006300;
+  --warn: #8a5a00;
   --bad: #b42323;
 
   /* Categorical series (validated reference palette, light steps) */
@@ -38,6 +39,7 @@
   --btn: #f0efec;
   --btn-ink: #111110;
   --good: #4cc24c;
+  --warn: #f2b84b;
   --bad: #f07a7a;
 
   --series-1: #3987e5;
@@ -59,6 +61,7 @@
   --color-btn: var(--btn);
   --color-btn-ink: var(--btn-ink);
   --color-good: var(--good);
+  --color-warn: var(--warn);
   --color-bad: var(--bad);
   --color-s1: var(--series-1);
   --color-s2: var(--series-2);

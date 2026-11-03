@@ -23,11 +23,12 @@ export default function LogModal({ open, entry, onClose, onSave }) {
   const [form, setForm] = useState(emptyForm)
   const [errors, setErrors] = useState({})
   const firstField = useRef(null)
-  const isEdit = Boolean(entry)
+  // An entry without an id is a prefill (e.g. a date picked on the calendar), not an edit.
+  const isEdit = Boolean(entry?.id)
 
   useEffect(() => {
     if (!open) return
-    setForm(entry ? fromEntry(entry) : emptyForm())
+    setForm(entry?.id ? fromEntry(entry) : { ...emptyForm(), ...(entry?.date ? { date: entry.date } : {}) })
     setErrors({})
     const t = setTimeout(() => firstField.current?.focus(), 30)
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -73,7 +74,7 @@ export default function LogModal({ open, entry, onClose, onSave }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="log-modal-title"
-        className="animate-pop-in relative w-full max-w-lg rounded-2xl border border-line bg-surface shadow-2xl shadow-black/20"
+        className="animate-pop-in relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface shadow-2xl shadow-black/20"
       >
         <header className="flex items-start justify-between border-b border-line px-6 py-5">
           <div>
