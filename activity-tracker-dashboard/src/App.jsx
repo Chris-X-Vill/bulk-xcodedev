@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Moon, Plus, Sun, Target, Upload } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Moon, Plus, Sun, Upload } from 'lucide-react'
 import ConfirmDialog from './components/ConfirmDialog'
 import GoalModal from './components/GoalModal'
 import LogModal from './components/LogModal'
 import { BottomNav, ROUTES, Sidebar } from './components/Nav'
 import { buildBackup, mergeById, parseBackup, saveBackupFile } from './lib/backup'
-import { goalProgress } from './lib/goals'
 import { makeSeed } from './lib/seed'
 import { KEYS, usePersistentState } from './lib/storage'
 import { addDays, fmtDay, fmtStamp, toKey, uid } from './lib/utils'
@@ -217,28 +216,12 @@ export default function App() {
     })
   }
 
-  const goalsMet = goals.filter((g) => goalProgress(g, logs, today).status === 'met').length
   const greeting = today.getHours() < 12 ? 'Good morning' : today.getHours() < 18 ? 'Good afternoon' : 'Good evening'
   const [title, subtitle] = route === 'dashboard' ? ['Daily Activity Tracker', greeting] : PAGE_TITLES[route]
 
   return (
     <div className="flex min-h-screen bg-canvas text-ink">
-      <Sidebar
-        route={route}
-        footer={
-          <a href="#goals" className="block rounded-xl border border-line bg-surface-2 p-4 transition hover:border-line-strong">
-            <p className="flex items-center gap-2 text-sm font-semibold">
-              <Target size={15} /> Goals
-            </p>
-            <p className="mt-0.5 text-xs text-ink-3">{goals.length ? `${goalsMet} of ${goals.length} met` : 'Set your first goal'}</p>
-            {goals.length > 0 && (
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
-                <div className="h-full rounded-full bg-good" style={{ width: `${(goalsMet / goals.length) * 100}%` }} />
-              </div>
-            )}
-          </a>
-        }
-      />
+      <Sidebar route={route} />
 
       <main className="min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-8 lg:px-10 lg:pb-8">
         <div className="mx-auto max-w-[1280px] space-y-6">
