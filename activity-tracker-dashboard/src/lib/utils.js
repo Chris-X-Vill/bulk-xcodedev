@@ -48,6 +48,41 @@ export const fmtDay = (d) => dayFmt.format(d)
 export const fmtLong = (d) => longFmt.format(d)
 export const fmtWeekday = (d) => weekdayFmt.format(d)
 
+const narrowFmt = new Intl.DateTimeFormat(undefined, { weekday: 'narrow' })
+const fullFmt = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+const monthFmt = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
+const stampFmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+export const fmtNarrowWeekday = (d) => narrowFmt.format(d)
+export const fmtFull = (d) => fullFmt.format(d)
+export const fmtMonth = (d) => monthFmt.format(d)
+export const fmtStamp = (d) => stampFmt.format(d)
+
+/** Newest day first; within a day, longest entry first. */
+export function compareLogs(a, b) {
+  if (a.date !== b.date) return a.date < b.date ? 1 : -1
+  return b.minutes - a.minutes
+}
+
+export function groupByDate(logs) {
+  const map = new Map()
+  for (const log of logs) {
+    if (!map.has(log.date)) map.set(log.date, [])
+    map.get(log.date).push(log)
+  }
+  return map
+}
+
+/** Every date shown on a Monday-first month grid, including the days that pad the first and last week. */
+export function monthGrid(monthStart) {
+  const first = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1)
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0)
+  const end = addDays(startOfWeek(last), 6)
+  const days = []
+  for (let d = startOfWeek(first); d <= end; d = addDays(d, 1)) days.push(d)
+  return days
+}
+
 export function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
 }
