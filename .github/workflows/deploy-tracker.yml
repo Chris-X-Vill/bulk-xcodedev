@@ -40,15 +40,20 @@ jobs:
           npm ci
           npm run build
       - name: Build website
+        # Skipped if the website folder is missing, so the tracker still deploys.
+        if: hashFiles('website/package.json') != ''
         working-directory: website
         run: |
           npm ci
           npm run build
       - name: Combine into one site
         run: |
-          mkdir -p _site/website
+          mkdir -p _site
           cp -r activity-tracker-dashboard/dist/. _site/
-          cp -r website/dist/. _site/website/
+          if [ -d website/dist ]; then
+            mkdir -p _site/website
+            cp -r website/dist/. _site/website/
+          fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

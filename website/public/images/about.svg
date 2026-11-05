@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd166"/><stop offset="1" stop-color="#f2a541"/></linearGradient></defs>
+<rect width="800" height="1000" fill="url(#g)"/>
+<circle cx="400" cy="980" r="380" fill="#1f7a6b" opacity="0.25"/><ellipse cx="220.6" cy="511.5" rx="73.6" ry="142.6" fill="#7a5232" transform="rotate(-18 220.6 511.5)"/><ellipse cx="579.4" cy="511.5" rx="73.6" ry="142.6" fill="#7a5232" transform="rotate(18 579.4 511.5)"/><circle cx="400" cy="500" r="230" fill="#d9a066"/><circle cx="319.5" cy="297.6" r="59.8" fill="#d9a066"/><circle cx="400.0" cy="274.6" r="69.0" fill="#d9a066"/><circle cx="480.5" cy="297.6" r="59.8" fill="#d9a066"/><ellipse cx="400" cy="587.4" rx="119.6" ry="92.0" fill="#f3d9b5"/><circle cx="317.2" cy="481.6" r="25.3" fill="#1d1a17"/><circle cx="325.2" cy="472.4" r="8.1" fill="#fff"/><circle cx="482.8" cy="481.6" r="25.3" fill="#1d1a17"/><circle cx="490.9" cy="472.4" r="8.1" fill="#fff"/><ellipse cx="400" cy="550.6" rx="39.1" ry="27.6" fill="#1d1a17"/><path d="M377.0 615.0 q23.0 64.4 46.0 0 z" fill="#ef8a9a"/><path d="M354.0 596.6 q46.0 36.8 92.0 0" fill="none" stroke="#1d1a17" stroke-width="9.2" stroke-linecap="round"/>
+<rect x="125" y="935" width="550" height="45" rx="22" fill="#000" opacity="0.28"/>
+<text x="400" y="966" text-anchor="middle" font-family="system-ui, sans-serif" font-size="25" fill="#fff">Replace with a photo · images/about.svg</text>
+</svg>
