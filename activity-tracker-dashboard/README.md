@@ -21,7 +21,7 @@ npm run build    # production build in dist/
 ```
 
 ## Deploy
-`.github/workflows/deploy-tracker.yml` builds the app and publishes it to GitHub Pages on every push to `master` that touches this folder. In the repo settings, Pages must have **Source** set to **GitHub Actions**.
+`.github/workflows/deploy-tracker.yml` builds this app and the `website/` template, and publishes both to GitHub Pages on every push to `master` that touches either folder. The tracker is served at the site root and the website at `/website/`; the tracker's service worker ignores `/website/`. In the repo settings, Pages must have **Source** set to **GitHub Actions**.
 
 ## Structure
 ```
