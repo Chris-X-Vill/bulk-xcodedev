@@ -1,10 +1,15 @@
-name: Deploy activity tracker to GitHub Pages
+name: Deploy to GitHub Pages
+
+# Publishes both apps to one GitHub Pages site:
+#   /bulk-xcodedev/          -> activity-tracker-dashboard
+#   /bulk-xcodedev/website/  -> website
 
 on:
   push:
     branches: [master]
     paths:
       - 'activity-tracker-dashboard/**'
+      - 'website/**'
       - '.github/workflows/deploy-tracker.yml'
   workflow_dispatch:
 
@@ -20,22 +25,34 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: activity-tracker-dashboard
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: activity-tracker-dashboard/package-lock.json
-      - run: npm ci
-      - run: npm run build
+          cache-dependency-path: |
+            activity-tracker-dashboard/package-lock.json
+            website/package-lock.json
+      - name: Build activity tracker
+        working-directory: activity-tracker-dashboard
+        run: |
+          npm ci
+          npm run build
+      - name: Build website
+        working-directory: website
+        run: |
+          npm ci
+          npm run build
+      - name: Combine into one site
+        run: |
+          mkdir -p _site/website
+          cp -r activity-tracker-dashboard/dist/. _site/
+          cp -r website/dist/. _site/website/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: activity-tracker-dashboard/dist
+          path: _site
 
   deploy:
     needs: build

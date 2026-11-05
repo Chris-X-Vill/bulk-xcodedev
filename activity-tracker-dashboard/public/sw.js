@@ -1,5 +1,6 @@
 // Offline support: serve the app shell from cache, refreshing it from the network when online.
-const CACHE = 'activity-tracker-v1'
+const CACHE = 'activity-tracker-v2'
+const OTHER_SITES = [new URL('./website/', self.registration.scope).pathname]
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/apple-touch-icon.png']
 
 self.addEventListener('install', (event) => {
@@ -22,6 +23,8 @@ self.addEventListener('fetch', (event) => {
   const sameOrigin = url.origin === self.location.origin
   const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com'
   if (!sameOrigin && !isFont) return
+  // Other sites published inside this folder (the website at ./website/) are not part of the tracker.
+  if (sameOrigin && OTHER_SITES.some((path) => url.pathname.startsWith(path))) return
 
   // Pages: network first so updates show up, cached copy when offline.
   if (request.mode === 'navigate') {
