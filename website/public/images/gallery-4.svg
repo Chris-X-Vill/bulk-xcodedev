@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 900" width="900" height="900">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#203a8f"/><stop offset="1" stop-color="#0b1233"/></linearGradient></defs>
-  <rect width="900" height="900" fill="url(#g)"/>
-  <path d="M0 702 L315 405 L522 594 L720 342 L900 540 L900 900 L0 900 Z" fill="#7fd1c4" opacity="0.85"/><circle cx="216" cy="234" r="72" fill="#ffffff" opacity="0.8"/>
-  <text x="450" y="850" text-anchor="middle" font-family="system-ui, sans-serif" font-size="31" fill="#ffffff" opacity="0.75">Replace with your image · images/gallery-4.svg</text>
-</svg>

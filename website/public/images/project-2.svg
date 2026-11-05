@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#203a8f"/><stop offset="1" stop-color="#0b1233"/></linearGradient></defs>
-  <rect width="1200" height="800" fill="url(#g)"/>
-  <circle cx="816" cy="336" r="208" fill="#7fd1c4" opacity="0.9"/><rect x="168" y="448" width="480" height="176" rx="24" fill="#ffffff" opacity="0.18"/>
-  <text x="600" y="755" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" fill="#ffffff" opacity="0.75">Replace with your image · images/project-2.svg</text>
-</svg>
