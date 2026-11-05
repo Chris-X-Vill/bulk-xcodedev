@@ -11,9 +11,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const site = {
-  name: 'Your Name',
+  name: 'Oliver The Dog',
   // Shown in the browser tab and in search results.
-  title: 'Your Name · Ideas, work and projects',
+  title: 'Oliver · Ideas, work and projects',
   description: 'A home for my ideas, work, past projects and code.',
   // Shown in the Contact section and the footer.
   email: 'you@example.com',
@@ -32,7 +32,7 @@ export const hero = {
 export const about = {
   heading: 'About me',
   paragraphs: [
-    'Write a short introduction here. Where you are, what you work on, and what you care about.',
+    'Meet Oliver, a 9-year-old Morkie (Maltese & Yorkie mix) living absolute royalty status. At nine years young, Oliver has mastered the fine art of living       the good life. He operates on a strict, highly demanding schedule: 10% patrolling the perimeter for rogue delivery drivers, 20% perfecting the art of         the sunbeam nap, and 70% supervising whatever is happening in the kitchen.',
     'Add a second paragraph for your background, the tools you like, or what you are learning now. Add or remove paragraphs as you like.',
   ],
   image: 'images/about.svg',
