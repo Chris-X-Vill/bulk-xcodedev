@@ -73,7 +73,7 @@ function useTheme() {
 const PAGE_TITLES = {
   activities: ['Activities', 'Everything you’ve logged. Add, edit or delete any entry.'],
   goals: ['Goals', 'Daily and weekly targets for the time you log.'],
-  calendar: ['Calendar', 'Your activities by day. Tap a day to see or add its logs.'],
+  calendar: ['Calendar', 'Your activities by month. Tap a day to open it.'],
   settings: ['Settings', 'Backup, app icon, appearance and data.'],
 }
 
